@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拾卷 · 本地小说下载器</title>
+<style>
+:root{color-scheme:light dark;--paper:light-dark(#f6f3e9,#1f261f);--panel:light-dark(#fffdf6,#2b352d);--ink:light-dark(#213a30,#edf3e6);--muted:light-dark(#53675c,#bac7b8);--line:light-dark(#d9dfd1,#526154);--green:light-dark(#205440,#b7dec2);--on-green:light-dark(#fff,#163421)}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,sans-serif}main,header>div{max-width:1040px;margin:auto;padding:0 24px}header{border-bottom:1px solid var(--line)}header>div{display:flex;justify-content:space-between;align-items:center;min-height:65px}header strong{font-size:22px}small,p{color:var(--muted)}main{padding-block:38px}h1,h2,h3,p{margin:0}h1{font-size:clamp(28px,6vw,46px);line-height:1.2;margin:6px 0 12px}h2{font-size:23px;overflow-wrap:anywhere}h3{font-size:17px;margin-bottom:12px}form{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}label{width:100%;font-weight:600}input,button{font:inherit;border-radius:9px;padding:10px 14px}input{flex:1;min-width:200px;background:var(--panel);color:inherit;border:1px solid var(--line)}button{background:var(--green);color:var(--on-green);border:0;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}a{color:var(--green)}#status{min-height:30px;margin-top:10px}section{border-top:1px solid var(--line);padding-top:20px;margin-top:14px}.summary{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;margin-top:17px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0}ol{margin:0;padding-left:25px;max-height:330px;overflow:auto}li{padding:4px 0}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}#chapter-title{margin-bottom:10px;color:var(--muted)}@media(max-width:640px){.grid{grid-template-columns:1fr}main{padding-block:24px}}
+.mode{background:transparent;color:var(--green);border:1px solid var(--line);font-size:14px;padding:7px 10px}.field-label{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}.field-label label{width:auto}.match{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:12px 0;border-top:1px solid var(--line)}.match:first-child{border-top:0}.match p{font-size:14px;overflow-wrap:anywhere}.match strong{overflow-wrap:anywhere}.match .mode{white-space:nowrap}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;align-items:start;margin-top:8px}.workspace .panel{margin:0}.workspace h3{margin-top:0}.match[aria-current=true]{background:var(--paper);border-radius:8px;padding-inline:8px}.match button[aria-pressed=true]{background:var(--green);color:var(--on-green)}.preview-tools{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}.preview-tools [aria-pressed=true]{background:var(--green);color:var(--on-green)}#preview{max-height:420px;overflow:auto}#preview[data-view=brief]{overflow:hidden}#preview[data-view=brief] span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}.summary{padding-bottom:14px;border-bottom:1px solid var(--line)}@media(max-width:640px){.workspace{grid-template-columns:1fr}}
+.workspace[hidden],#custom-range[hidden]{display:none}button.match{position:relative;width:100%;display:block;text-align:left;padding:12px 14px 12px 18px;background:transparent;color:var(--ink);font-weight:400;border-radius:0}button.match:hover,button.match[aria-pressed=true]{background:var(--paper);border-radius:8px}button.match[aria-pressed=true]::before{content:"";position:absolute;left:5px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--green);pointer-events:none}button.match small{display:block;overflow-wrap:anywhere}#preview{padding:12px 15px;background:light-dark(#efebdf,#222a23);border-radius:8px}#range-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}#range-form label{width:auto}#range-form select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px}#custom-range{display:flex;align-items:center;gap:6px}#custom-range input{width:72px;min-width:0;padding:5px}
+.pagination{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.pagination[hidden]{display:none}.pagination button:disabled{cursor:default}#match-list{max-height:510px;overflow:auto;overscroll-behavior:contain}
+#chapter-actions[hidden]{display:flex;visibility:hidden}.reading-window{height:clamp(210px,35vh,290px);overflow:auto;overscroll-behavior:contain}.reading-window #chapters,.reading-window #preview{max-height:none;overflow:visible}.reading-window #preview[data-view=brief]{overflow:hidden}button{-webkit-tap-highlight-color:transparent}button.match:disabled,#lookup button:disabled,#result button:disabled{opacity:1}
+#download-progress[hidden]{display:block;visibility:hidden}#download-progress{margin-top:10px;height:65px;overflow:auto}#download-progress progress{width:100%;accent-color:var(--green)}#download:disabled{cursor:wait}
+#download,#partial-download{min-width:8.5rem;padding:10px 14px;font-size:16px;border:1px solid transparent}#partial-download{border-color:var(--line)}
+</style>
+<header><div><strong>拾卷</strong><small>本机运行 · 多书源</small></div></header>
+<main>
+  <small>01 找书　→　02 确认版本　→　03 整理导出</small>
+  <h1>把小说整理成一本 TXT</h1>
+  <p>在已接入的书源中找书，先看目录和首章，再下载整本。</p>
+  <form id="lookup">
+    <div class="field-label">
+      <label id="input-label" for="query">书名</label>
+      <button class="mode" id="toggle" type="button">粘贴链接</button>
+    </div>
+    <input id="query" type="search" placeholder="输入书名，例如：地球上线" maxlength="100" required>
+    <button id="open">搜索小说</button>
+  </form>
+  <p id="status" role="status"></p>
+  <div class="workspace" id="workspace" hidden>
+  <section id="matches" class="panel" aria-labelledby="matches-title">
+    <h3 id="matches-title">书源对比</h3>
+    <div id="match-list"><p>搜索后在这里比较候选版本。</p></div>
+    <nav id="pagination" class="pagination" aria-label="书源对比分页" hidden>
+      <button id="previous" class="mode" type="button">上一页</button>
+      <small id="page-label" aria-live="polite"></small>
+      <button id="next" class="mode" type="button">下一页</button>
+    </nav>
+  </section>
+  <section class="panel" aria-labelledby="preview-heading">
+    <h3 id="preview-heading">首章预览</h3>
+    <p id="preview-empty">选择左侧的版本，查看首章开头。</p>
+    <div id="result" hidden>
+    <div class="summary">
+      <div><h2 id="title"></h2><p><span id="count"></span> · <a id="original" target="_blank" rel="noopener noreferrer">打开原站</a></p></div>
+    </div>
+    <div class="preview-tools" role="group" aria-label="预览范围">
+      <button type="button" class="mode" data-view="catalog" aria-pressed="false">章节目录</button>
+    </div>
+    <div id="reading-window" class="reading-window" aria-label="正文与章节目录">
+      <ol id="chapters" hidden></ol>
+      <p id="chapter-title"></p><pre id="preview" aria-label="章节正文预览"><span id="preview-text"></span></pre>
+    </div>
+    <div class="preview-tools" id="chapter-actions"><button type="button" class="mode" data-view="full" aria-pressed="false">展开全章</button></div>
+    <form id="range-form">
+      <label for="range">章节范围</label>
+      <select id="range">
+        <option value="all">全部章节</option>
+        <option value="first">前 3 章</option>
+        <option value="custom">自选范围</option>
+      </select>
+      <span id="custom-range" hidden>
+        <input id="start" type="number" min="1" step="1" aria-label="起始章节" disabled required>
+        <span>至</span>
+        <input id="end" type="number" min="1" step="1" aria-label="结束章节" disabled required>
+      </span>
+      <button id="download">下载 TXT</button>
+      <button id="partial-download" class="mode" type="button" hidden>下载已有章节</button>
+    </form>
+    <div id="download-progress" hidden>
+      <progress id="progress-bar" aria-label="章节下载进度"></progress>
+      <small id="progress-label" role="status"></small>
+    </div>
+    </div>
+  </section>
+  </div>
+</main>
+<script>
+const byId = id => document.getElementById(id);
+const status = byId('status');
+const openButton = byId('open');
+const download = byId('download');
+const query = byId('query');
+const toggle = byId('toggle');
+const matches = byId('matches');
+const workspace = byId('workspace');
+const range = byId('range');
+const views = [...document.querySelectorAll('.preview-tools button')];
+const inputs = {search: '', link: ''};
+let mode = 'search';
+let book;
+let activeView = 'brief';
+const pageSize = 18;
+let results = [];
+let page = 0;
+let selectedUrl = '';
+let searching = false;
+let busy = false;
+let partialRange = null;
+
+function clearPartial() {
+  partialRange = null;
+  byId('partial-download').hidden = true;
+}
+
+function renderMatches() {
+  const pageCount = Math.ceil(results.length / pageSize);
+  const rows = results.slice(page * pageSize, (page + 1) * pageSize).map(item => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'match';
+    row.disabled = busy;
+    row.setAttribute('aria-pressed', String(item.url === selectedUrl));
+    const title = document.createElement('strong');
+    title.textContent = item.title;
+    const details = document.createElement('small');
+    details.textContent = [item.source, item.author, item.latest && '末章：' + item.latest].filter(Boolean).join(' · ');
+    row.addEventListener('click', () => showBook(item.url, row));
+    row.append(title, details);
+    return row;
+  });
+  byId('match-list').replaceChildren(...rows);
+  if (!rows.length) byId('match-list').textContent = '暂无候选版本。';
+  byId('pagination').hidden = pageCount <= 1;
+  byId('page-label').textContent = '第 ' + (page + 1) + ' / ' + pageCount + ' 页';
+  updatePagination(busy);
+}
+
+function updatePagination(busy) {
+  byId('previous').disabled = busy || page === 0;
+  byId('next').disabled = busy || (page + 1) * pageSize >= results.length;
+}
+
+for (const [id, direction] of [['previous', -1], ['next', 1]]) {
+  byId(id).addEventListener('click', () => {
+    page += direction;
+    renderMatches();
+    byId('match-list').scrollTop = 0;
+  });
+}
+
+function clearPreview(message = '选择左侧的版本，查看首章开头。') {
+  byId('result').hidden = true;
+  byId('preview-empty').textContent = message;
+  byId('preview-empty').hidden = false;
+}
+
+function selectView(view) {
+  activeView = view;
+  for (const button of views) button.setAttribute('aria-pressed', String(button.dataset.view === view));
+  byId('chapters').hidden = view !== 'catalog';
+  byId('chapter-actions').hidden = view === 'catalog';
+  byId('chapter-title').hidden = view === 'catalog';
+  const preview = byId('preview');
+  preview.hidden = view === 'catalog';
+  preview.dataset.view = view;
+  const readingWindow = byId('reading-window');
+  readingWindow.scrollTop = 0;
+  readingWindow.tabIndex = view === 'brief' ? -1 : 0;
+  views.find(button => button.dataset.view === 'full').textContent = view === 'full' ? '收起全章' : '展开全章';
+  if (view !== 'catalog') {
+    byId('preview-text').textContent = view === 'brief' ? book.preview : (book.fullPreview ?? '正在加载完整首章…');
+  }
+}
+
+for (const button of views) button.addEventListener('click', async () => {
+  const view = activeView === button.dataset.view ? 'brief' : button.dataset.view;
+  selectView(view);
+  const current = book;
+  if (view === 'catalog') {
+    try {
+      await loadCatalog(current);
+    } catch (error) {
+      if (book === current && activeView === 'catalog') byId('chapters').textContent = error.message;
+    }
+    return;
+  }
+  if (view !== 'full' || current.fullPreview !== undefined) return;
+  try {
+    const response = await fetch('/preview/' + current.token);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail);
+    current.fullPreview = data.text;
+    if (book === current && activeView === 'full') selectView('full');
+  } catch (error) {
+    if (book === current && activeView === 'full') byId('preview-text').textContent = error.message;
+  }
+});
+
+async function loadCatalog(current) {
+  if (!current.chapters) {
+    const list = byId('chapters');
+    list.textContent = '正在读取完整目录…';
+    const response = await fetch('/catalog/' + current.token);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail);
+    current.chapters = data.chapters;
+    if (book === current) {
+      byId('count').textContent = current.source + ' · ' + current.chapters.length + ' 章';
+      for (const id of ['start', 'end']) byId(id).max = current.chapters.length;
+      list.replaceChildren(...current.chapters.map(chapter => {
+        const row = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = chapter.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = chapter.title;
+        row.append(link);
+        return row;
+      }));
+    }
+  }
+  return current.chapters;
+}
+
+function updateRange() {
+  clearPartial();
+  const custom = range.value === 'custom';
+  byId('custom-range').hidden = !custom;
+  byId('start').disabled = !custom;
+  byId('end').disabled = !custom;
+  download.textContent = '下载 TXT';
+}
+range.addEventListener('change', updateRange);
+for (const id of ['start', 'end']) byId(id).addEventListener('input', () => {
+  clearPartial();
+  download.textContent = '下载 TXT';
+});
+
+function setBusy(value) {
+  busy = value;
+  openButton.disabled = busy || searching;
+  toggle.disabled = busy || searching;
+  download.disabled = busy;
+  byId('partial-download').disabled = busy;
+  for (const button of matches.querySelectorAll('button')) button.disabled = busy;
+  for (const button of views) button.disabled = busy;
+  updatePagination(busy);
+}
+
+toggle.addEventListener('click', () => {
+  inputs[mode] = query.value;
+  mode = mode === 'search' ? 'link' : 'search';
+  const link = mode === 'link';
+  query.type = link ? 'url' : 'search';
+  query.maxLength = link ? 1000 : 100;
+  query.placeholder = link ? '粘贴已接入书源的作品详情页链接' : '输入书名，例如：地球上线';
+  query.value = inputs[mode];
+  byId('input-label').textContent = link ? '作品链接' : '书名';
+  toggle.textContent = link ? '按书名搜索' : '粘贴链接';
+  openButton.textContent = link ? '读取目录' : '搜索小说';
+  byId('matches-title').textContent = '书源对比';
+  byId('match-list').textContent = link ? '粘贴链接后在这里显示对应版本。' : '搜索后在这里比较候选版本。';
+  workspace.hidden = true;
+  byId('pagination').hidden = true;
+  clearPreview();
+  status.textContent = '';
+  query.focus();
+});
+
+async function request(path, payload) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '请求失败。');
+  return data;
+}
+
+async function showBook(url, selected) {
+  setBusy(true);
+  workspace.hidden = false;
+  const hasPreview = !byId('result').hidden;
+  if (!hasPreview) clearPreview('正在加载首章…');
+  status.textContent = '正在读取首章预览…';
+  download.textContent = '下载 TXT';
+  try {
+    const data = await request('/catalog', {url});
+    book = data;
+    byId('download-progress').hidden = true;
+    byId('title').textContent = data.title;
+    byId('count').textContent = data.source;
+    byId('original').href = data.url;
+    byId('chapters').replaceChildren();
+    byId('chapter-title').textContent = data.firstChapter.title;
+    if (!selected) {
+      const name = document.createElement('strong');
+      name.textContent = data.title;
+      const details = document.createElement('p');
+      details.textContent = data.source;
+      byId('match-list').replaceChildren(name, details);
+    } else {
+      selectedUrl = url;
+      for (const button of matches.querySelectorAll('button.match')) {
+        const active = button === selected;
+        button.setAttribute('aria-pressed', String(active));
+      }
+    }
+    selectView('brief');
+    range.value = 'all';
+    byId('start').value = 1;
+    byId('end').value = 1;
+    for (const id of ['start', 'end']) byId(id).removeAttribute('max');
+    updateRange();
+    byId('preview-empty').hidden = true;
+    byId('result').hidden = false;
+    status.textContent = '';
+  } catch (error) {
+    if (!hasPreview) clearPreview('未能加载预览。');
+    status.textContent = error.message;
+  } finally {
+    setBusy(false);
+  }
+}
+
+byId('lookup').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || searching) return;
+  const value = query.value.trim();
+  if (!value) return;
+  workspace.hidden = false;
+  clearPreview();
+  byId('matches-title').textContent = '书源对比';
+  byId('match-list').textContent = '';
+  byId('pagination').hidden = true;
+  results = [];
+  page = 0;
+  selectedUrl = '';
+  if (mode === 'link') {
+    await showBook(value);
+    return;
+  }
+  searching = true;
+  setBusy(false);
+  status.textContent = '';
+  const heading = byId('matches-title');
+  heading.textContent = '书源对比 · 搜索中…';
+  const errors = [];
+  try {
+    const response = await fetch('/search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: value})
+    });
+    if (!response.ok) throw new Error('搜索请求失败。');
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += chunk.value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        const batch = JSON.parse(line);
+        if (batch.error) errors.push(batch.error);
+        if (batch.results?.length) {
+          results.push(...batch.results);
+          const list = byId('match-list');
+          const scroll = list.scrollTop;
+          renderMatches();
+          list.scrollTop = scroll;
+        }
+        heading.textContent = '书源对比 · ' + results.length + ' 个版本 · 搜索中…';
+      }
+    }
+    heading.textContent = '书源对比 · ' + results.length + ' 个版本';
+    renderMatches();
+    if (!busy) status.textContent = errors.length
+      ? '未能完成搜索：' + errors.join('、')
+      : (results.length ? '' : '已接入书源没有找到这本书。');
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    searching = false;
+    setBusy(busy);
+  }
+});
+
+byId('range-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy) return;
+  clearPartial();
+  setBusy(true);
+  const current = book;
+  const progressPanel = byId('download-progress');
+  const progressBar = byId('progress-bar');
+  const progressLabel = byId('progress-label');
+  let timer;
+  let running = true;
+  progressPanel.hidden = false;
+  progressBar.removeAttribute('value');
+  progressLabel.textContent = '正在准备下载…';
+  try {
+    if (!current.chapters) progressLabel.textContent = '正在读取完整目录…';
+    const count = (await loadCatalog(current)).length;
+    const start = range.value === 'custom' ? Number(byId('start').value) : 1;
+    const end = range.value === 'custom' ? Number(byId('end').value) : (range.value === 'first' ? Math.min(3, count) : count);
+    if (start > end || end > count) throw new Error('章节范围无效，本书共 ' + count + ' 章。');
+    const run = crypto.randomUUID();
+    progressBar.max = end - start + 1;
+    progressBar.value = 0;
+    progressLabel.textContent = '已处理 0 / ' + progressBar.max + ' 章';
+    const poll = async () => {
+      try {
+        const reply = await fetch('/download/' + current.token + '/progress', {cache: 'no-store'});
+        if (!reply.ok || !running) return;
+        const {progress} = await reply.json();
+        if (!running || progress?.run !== run) return;
+        progressBar.value = progress.processed;
+        progressLabel.textContent = '已处理 ' + progress.processed + ' / ' + progress.total + ' 章'
+          + (progress.failed ? ' · 失败 ' + progress.failed + ' 章' : '');
+      } catch {
+        // The download response still reports the outcome if polling fails.
+      } finally {
+        if (running) timer = setTimeout(poll, 500);
+      }
+    };
+    timer = setTimeout(poll, 500);
+    const response = await fetch('/download/' + current.token + '?start=' + start + '&end=' + end + '&run=' + run, {method: 'POST'});
+    if (!response.ok) {
+      const data = await response.json();
+      if (data.failed) {
+        const numbers = data.failed.map(chapter => chapter.number).join('、');
+        progressBar.value = data.completed + data.failed.length;
+        progressLabel.textContent = '成功 ' + data.completed + ' 章 · 失败 ' + data.failed.length + ' 章';
+        download.textContent = '重试失败章节';
+        if (data.completed) {
+          partialRange = {book: current, start, end};
+          byId('partial-download').hidden = false;
+        }
+        throw new Error('已抓取 ' + data.completed + ' 章。失败章序号：' + numbers);
+      }
+      throw new Error(data.detail || '下载失败。');
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    const suffix = start === 1 && end === count ? '' : ' [' + start + '-' + end + ']';
+    link.download = book.title.replace(/[<>:"/\\|?*]/g, '_') + suffix + '.txt';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    download.textContent = '下载 TXT';
+    progressBar.value = end - start + 1;
+    progressLabel.textContent = '已完成 ' + (end - start + 1) + ' 章';
+  } catch (error) {
+    progressLabel.textContent = error.message;
+  } finally {
+    running = false;
+    clearTimeout(timer);
+    setBusy(false);
+  }
+});
+
+byId('partial-download').addEventListener('click', async () => {
+  if (busy || !partialRange) return;
+  const {book: current, start, end} = partialRange;
+  if (!confirm('所选范围还有章节缺失。要下载已有章节吗？TXT 中会标出缺失位置。')) return;
+  setBusy(true);
+  try {
+    const response = await fetch('/download/' + current.token + '?start=' + start + '&end=' + end + '&partial=true', {method: 'POST'});
+    if (!response.ok) throw new Error((await response.json()).detail || '下载失败。');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = current.title.replace(/[<>:"/\\|?*]/g, '_') + ' [' + start + '-' + end + ' 缺章].txt';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = '已生成缺章版 TXT。';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    setBusy(false);
+  }
+});
+</script>
+</html>

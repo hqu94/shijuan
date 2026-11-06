@@ -1,0 +1,70 @@
+{
+  "sets": {
+    "default": [
+      {
+        "enabled": true,
+        "adapter": "shaonian",
+        "rule": {
+          "name": "少年小说网",
+          "url": "https://www.snxsw.com/"
+        }
+      },
+      {
+        "enabled": true,
+        "adapter": "css",
+        "rule": {
+          "name": "新笔趣阁小说网",
+          "url": "https://www.xbiquge.info/",
+          "search": {
+            "url": "https://www.xbiquge.info/search.php?q=%s",
+            "result": ".hot .row dl",
+            "bookName": "h3 a[href]",
+            "author": ".book_other span",
+            "latestChapter": ".book_other a[href$='.html']"
+          },
+          "book": {
+            "url": "https://www\\.xbiquge\\.info/(\\d+/\\d+)/"
+          },
+          "toc": {
+            "url": "https://www.xbiquge.info/%s/index_1.html",
+            "item": ".book_list2 li a[href$='.html']",
+            "nextPage": ".pagination .active + li a[href]"
+          },
+          "chapter": {
+            "content": ".single article",
+            "nextPage": ".nav-bottom a:-soup-contains('下一章', '下一页')"
+          }
+        }
+      },
+      {
+        "enabled": true,
+        "adapter": "css",
+        "rule": {
+          "name": "笔趣阁365",
+          "url": "https://www.biquge365.net/",
+          "search": {
+            "url": "https://www.biquge365.net/s.php",
+            "method": "post",
+            "data": "{type: articlename, s: %s}",
+            "result": "div.menu li",
+            "bookName": ".name a[href]",
+            "author": "a[href^='/author/']",
+            "latestChapter": "a[href^='/chapter/']"
+          },
+          "book": {
+            "url": "https://www\\.biquge365\\.net/book/(\\d+)/"
+          },
+          "toc": {
+            "url": "https://www.biquge365.net/newbook/%s/",
+            "item": "ul.info a[href^='/chapter/']"
+          },
+          "chapter": {
+            "content": "#neirong #txt",
+            "filterTag": "p",
+            "nextPage": "#fanye li:last-child a[href]"
+          }
+        }
+      }
+    ]
+  }
+}
