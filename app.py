@@ -2,6 +2,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 import json
+import re
 from pathlib import Path
 from threading import Lock
 from time import sleep
@@ -42,6 +43,42 @@ class Book:
 
 class Lookup(BaseModel):
     url: str = Field(max_length=1000)
+
+
+class DownloadOptions(BaseModel):
+    directory: str = Field(default="", max_length=4096)
+
+
+def export_txt(sections, filename, directory):
+    body = "\n\n".join(sections).replace("\n", "\r\n")
+    if not directory:
+        return Response(body, media_type="text/plain; charset=utf-8", headers={
+            "Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename, safe="")
+        })
+    folder = Path(directory).expanduser()
+    if not folder.is_absolute() or not folder.is_dir():
+        raise HTTPException(400, "请输入本机已存在的绝对目录路径。")
+    stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename.removesuffix(".txt")).strip(" .")[:80]
+    stem = stem or "拾卷下载"
+    if re.match(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", stem):
+        stem = "_" + stem
+    for number in range(1, 1001):
+        suffix = "" if number == 1 else f" ({number})"
+        target = folder / f"{stem}{suffix}.txt"
+        try:
+            with target.open("xb") as output:
+                try:
+                    output.write(body.encode("utf-8"))
+                except OSError:
+                    output.close()
+                    target.unlink(missing_ok=True)
+                    raise
+        except FileExistsError:
+            continue
+        except OSError as error:
+            raise HTTPException(400, "无法写入下载目录，请检查目录权限。") from error
+        return {"saved": str(target)}
+    raise HTTPException(409, "同名文件过多，请更换目录。")
 
 
 class Search(BaseModel):
@@ -155,7 +192,7 @@ def download_progress(token: str):
 
 
 @app.post("/download/{token}")
-def download(token: str, start: int = 1, end: int | None = None, run: str = "", partial: bool = False):
+def download(token: str, start: int = 1, end: int | None = None, run: str = "", partial: bool = False, options: DownloadOptions | None = None):
     with catalog_lock:
         book = catalogs.get(token)
     if book is None:
@@ -166,6 +203,12 @@ def download(token: str, start: int = 1, end: int | None = None, run: str = "", 
     if not 1 <= start <= end <= len(book.chapters):
         raise HTTPException(400, "章节范围无效。")
     selected = range(start - 1, end)
+    directory = options.directory.strip() if options else ""
+    if directory:
+        folder = Path(directory).expanduser()
+        if not folder.is_absolute() or not folder.is_dir():
+            raise HTTPException(400, "请输入本机已存在的绝对目录路径。")
+    suffix = "" if start == 1 and end == len(book.chapters) else f" [{start}-{end}]"
     if not book.lock.acquire(blocking=False):
         raise HTTPException(409, "这本书正在下载。")
     try:
@@ -178,11 +221,7 @@ def download(token: str, start: int = 1, end: int | None = None, run: str = "", 
                 paragraphs = book.texts.get(number)
                 content = "\n\n".join(paragraphs) if paragraphs else f"【第 {number + 1} 章缺失】"
                 sections.append(chapter.title + "\n\n" + content)
-            return Response(
-                "\n\n".join(sections).replace("\n", "\r\n"),
-                media_type="text/plain; charset=utf-8",
-                headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(book.title + " [缺章].txt", safe="")},
-            )
+            return export_txt(sections, book.title + suffix + " [缺章].txt", directory)
         failed = []
         processed = sum(number in book.texts for number in selected)
         book.progress = {"run": run, "processed": processed, "total": len(selected), "failed": 0}
@@ -206,10 +245,6 @@ def download(token: str, start: int = 1, end: int | None = None, run: str = "", 
             book.chapters[number].title + "\n\n" + "\n\n".join(book.texts[number])
             for number in selected
         ]
-        return Response(
-            "\n\n".join([book.title, *sections]).replace("\n", "\r\n"),
-            media_type="text/plain; charset=utf-8",
-            headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(book.title + ".txt", safe="")},
-        )
+        return export_txt([book.title, *sections], book.title + suffix + ".txt", directory)
     finally:
         book.lock.release()

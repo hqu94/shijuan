@@ -13,8 +13,18 @@
 #chapter-actions[hidden]{display:flex;visibility:hidden}.reading-window{height:clamp(210px,35vh,290px);overflow:auto;overscroll-behavior:contain}.reading-window #chapters,.reading-window #preview{max-height:none;overflow:visible}.reading-window #preview[data-view=brief]{overflow:hidden}button{-webkit-tap-highlight-color:transparent}button.match:disabled,#lookup button:disabled,#result button:disabled{opacity:1}
 #download-progress[hidden]{display:block;visibility:hidden}#download-progress{margin-top:10px;height:65px;overflow:auto}#download-progress progress{width:100%;accent-color:var(--green)}#download:disabled{cursor:wait}
 #download,#partial-download{min-width:8.5rem;padding:10px 14px;font-size:16px;border:1px solid transparent}#partial-download{border-color:var(--line)}
+#settings-dialog{width:min(440px,calc(100% - 32px));background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:20px}#settings-dialog::backdrop{background:#0005}#settings-form{margin:0}#save-directory{flex-basis:100%}
 </style>
-<header><div><strong>拾卷</strong><small>本机运行 · 多书源</small></div></header>
+<header><div><strong>拾卷</strong><button class="mode" id="download-settings" type="button">下载设置</button></div></header>
+<dialog id="settings-dialog">
+  <form id="settings-form">
+    <label for="save-directory">TXT 下载目录</label>
+    <p>输入运行拾卷的电脑上已存在的目录。留空时使用浏览器下载。</p>
+    <input id="save-directory" type="text" placeholder="例如 D:\Downloads 或 /home/me/Downloads" maxlength="4096">
+    <button type="submit">保存</button>
+    <button class="mode" id="cancel-settings" type="button">取消</button>
+  </form>
+</dialog>
 <main>
   <small>01 找书　→　02 确认版本　→　03 整理导出</small>
   <h1>把小说整理成一本 TXT</h1>
@@ -78,6 +88,41 @@
 </main>
 <script>
 const byId = id => document.getElementById(id);
+const settingsDialog = byId('settings-dialog');
+let saveDirectory = localStorage.getItem('shijuan.downloadDirectory') || '';
+byId('download-settings').addEventListener('click', () => {
+  byId('save-directory').value = saveDirectory;
+  settingsDialog.showModal();
+});
+byId('cancel-settings').addEventListener('click', () => settingsDialog.close());
+byId('settings-form').addEventListener('submit', event => {
+  event.preventDefault();
+  saveDirectory = byId('save-directory').value.trim();
+  localStorage.setItem('shijuan.downloadDirectory', saveDirectory);
+  settingsDialog.close();
+});
+
+function requestDownload(path) {
+  return fetch(path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({directory: saveDirectory}),
+  });
+}
+
+async function saveDownload(response, filename) {
+  if (response.headers.get('content-type')?.includes('application/json')) {
+    const {saved} = await response.json();
+    return '已保存到 ' + saved;
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return '';
+}
 const status = byId('status');
 const openButton = byId('open');
 const download = byId('download');
@@ -420,7 +465,7 @@ byId('range-form').addEventListener('submit', async event => {
       }
     };
     timer = setTimeout(poll, 500);
-    const response = await fetch('/download/' + current.token + '?start=' + start + '&end=' + end + '&run=' + run, {method: 'POST'});
+    const response = await requestDownload('/download/' + current.token + '?start=' + start + '&end=' + end + '&run=' + run);
     if (!response.ok) {
       const data = await response.json();
       if (data.failed) {
@@ -436,16 +481,11 @@ byId('range-form').addEventListener('submit', async event => {
       }
       throw new Error(data.detail || '下载失败。');
     }
-    const url = URL.createObjectURL(await response.blob());
-    const link = document.createElement('a');
-    link.href = url;
     const suffix = start === 1 && end === count ? '' : ' [' + start + '-' + end + ']';
-    link.download = book.title.replace(/[<>:"/\\|?*]/g, '_') + suffix + '.txt';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const saved = await saveDownload(response, book.title.replace(/[<>:"/\\|?*]/g, '_') + suffix + '.txt');
     download.textContent = '下载 TXT';
     progressBar.value = end - start + 1;
-    progressLabel.textContent = '已完成 ' + (end - start + 1) + ' 章';
+    progressLabel.textContent = saved || '已完成 ' + (end - start + 1) + ' 章';
   } catch (error) {
     progressLabel.textContent = error.message;
   } finally {
@@ -461,15 +501,10 @@ byId('partial-download').addEventListener('click', async () => {
   if (!confirm('所选范围还有章节缺失。要下载已有章节吗？TXT 中会标出缺失位置。')) return;
   setBusy(true);
   try {
-    const response = await fetch('/download/' + current.token + '?start=' + start + '&end=' + end + '&partial=true', {method: 'POST'});
+    const response = await requestDownload('/download/' + current.token + '?start=' + start + '&end=' + end + '&partial=true');
     if (!response.ok) throw new Error((await response.json()).detail || '下载失败。');
-    const url = URL.createObjectURL(await response.blob());
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = current.title.replace(/[<>:"/\\|?*]/g, '_') + ' [' + start + '-' + end + ' 缺章].txt';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status.textContent = '已生成缺章版 TXT。';
+    const saved = await saveDownload(response, current.title.replace(/[<>:"/\\|?*]/g, '_') + ' [' + start + '-' + end + ' 缺章].txt');
+    status.textContent = saved || '已生成缺章版 TXT。';
   } catch (error) {
     status.textContent = error.message;
   } finally {
