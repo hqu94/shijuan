@@ -30,11 +30,22 @@
 
 ### 🪟 Windows · PowerShell
 
+如果你有打包版，双击 `Shijuan.exe` 即可启动并打开浏览器。使用源码时运行以下命令。
+
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\start.cmd
 ```
+
+如需自行生成 Windows 打包版，在安装应用依赖后运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install pyinstaller
+.\build-windows.cmd
+```
+
+生成的文件位于 `dist/Shijuan.exe`。如需自定义书源，把配置文件放在 EXE 同一目录。
 
 ### 🍎 macOS / 🐧 Linux · 终端
 
@@ -53,6 +64,16 @@ python3.12 -m venv .venv
 ## 🔒 本地运行
 
 默认只监听 `127.0.0.1`。搜索、预览和下载会向已启用的书源发送请求，应用没有设备信息上报。TXT 由浏览器保存到你选择的位置。请仅下载你有权获取和保存的内容。
+
+## 🗂️ 项目结构
+
+| 位置 | 内容 |
+| --- | --- |
+| [web/](web/) | 网页模板、样式和浏览器交互 |
+| [adapters/](adapters/) | 书源解析与正文清洗 |
+| [sources.json](sources.json) | 默认书源配置 |
+| [app.py](app.py) | 本地 API 和下载流程 |
+| [txt_export.py](txt_export.py) | TXT 格式化与保存 |
 
 ## 💚 许可证
 

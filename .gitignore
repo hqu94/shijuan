@@ -8,3 +8,6 @@ sources.local.json
 downloads/
 logs/
 *.log
+build/
+dist/
+*.spec

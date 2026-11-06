@@ -2,21 +2,26 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 import json
-import re
 from pathlib import Path
 from threading import Lock
 from time import sleep
 from urllib.error import URLError
-from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from sources import Chapter, CssSource, ShaonianSource, load_sources
+from adapters.common import Chapter
+from adapters.css_source import CssSource
+from adapters.shaonian import ShaonianSource
+from sources import load_sources
+from txt_export import export_txt
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+web_dir = Path(__file__).with_name("web")
+app.mount("/assets", StaticFiles(directory=web_dir / "assets"), name="assets")
 catalogs = OrderedDict()
 catalog_lock = Lock()
 source_errors = (URLError, OSError, ValueError)
@@ -49,38 +54,6 @@ class DownloadOptions(BaseModel):
     directory: str = Field(default="", max_length=4096)
 
 
-def export_txt(sections, filename, directory):
-    body = "\n\n".join(sections).replace("\n", "\r\n")
-    if not directory:
-        return Response(body, media_type="text/plain; charset=utf-8", headers={
-            "Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename, safe="")
-        })
-    folder = Path(directory).expanduser()
-    if not folder.is_absolute() or not folder.is_dir():
-        raise HTTPException(400, "请输入本机已存在的绝对目录路径。")
-    stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename.removesuffix(".txt")).strip(" .")[:80]
-    stem = stem or "拾卷下载"
-    if re.match(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", stem):
-        stem = "_" + stem
-    for number in range(1, 1001):
-        suffix = "" if number == 1 else f" ({number})"
-        target = folder / f"{stem}{suffix}.txt"
-        try:
-            with target.open("xb") as output:
-                try:
-                    output.write(body.encode("utf-8"))
-                except OSError:
-                    output.close()
-                    target.unlink(missing_ok=True)
-                    raise
-        except FileExistsError:
-            continue
-        except OSError as error:
-            raise HTTPException(400, "无法写入下载目录，请检查目录权限。") from error
-        return {"saved": str(target)}
-    raise HTTPException(409, "同名文件过多，请更换目录。")
-
-
 class Search(BaseModel):
     query: str = Field(max_length=100)
 
@@ -94,7 +67,7 @@ async def local_requests(request: Request, call_next):
 
 @app.get("/")
 def home():
-    return FileResponse(Path(__file__).with_name("index.html"))
+    return FileResponse(web_dir / "index.html")
 
 
 @app.post("/search")

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拾卷 · 本地小说下载器</title>
+<link rel="stylesheet" href="/assets/style.css">
+<header><div><strong>拾卷</strong><button class="mode" id="download-settings" type="button">下载设置</button></div></header>
+<dialog id="settings-dialog">
+  <form id="settings-form">
+    <label for="save-directory">TXT 下载目录</label>
+    <p>输入运行拾卷的电脑上已存在的目录。留空时使用浏览器下载。</p>
+    <input id="save-directory" type="text" placeholder="例如 D:\Downloads 或 /home/me/Downloads" maxlength="4096">
+    <button type="submit">保存</button>
+    <button class="mode" id="cancel-settings" type="button">取消</button>
+  </form>
+</dialog>
+<main>
+  <small>01 找书　→　02 确认版本　→　03 整理导出</small>
+  <h1>把小说整理成一本 TXT</h1>
+  <p>在已接入的书源中找书，先看目录和首章，再下载整本。</p>
+  <form id="lookup">
+    <div class="field-label">
+      <label id="input-label" for="query">书名</label>
+      <button class="mode" id="toggle" type="button">粘贴链接</button>
+    </div>
+    <input id="query" type="search" placeholder="输入书名，例如：地球上线" maxlength="100" required>
+    <button id="open">搜索小说</button>
+  </form>
+  <p id="status" role="status"></p>
+  <div class="workspace" id="workspace" hidden>
+  <section id="matches" class="panel" aria-labelledby="matches-title">
+    <h3 id="matches-title">书源对比</h3>
+    <div id="match-list"><p>搜索后在这里比较候选版本。</p></div>
+    <nav id="pagination" class="pagination" aria-label="书源对比分页" hidden>
+      <button id="previous" class="mode" type="button">上一页</button>
+      <small id="page-label" aria-live="polite"></small>
+      <button id="next" class="mode" type="button">下一页</button>
+    </nav>
+  </section>
+  <section class="panel" aria-labelledby="preview-heading">
+    <h3 id="preview-heading">首章预览</h3>
+    <p id="preview-empty">选择左侧的版本，查看首章开头。</p>
+    <div id="result" hidden>
+    <div class="summary">
+      <div><h2 id="title"></h2><p><span id="count"></span> · <a id="original" target="_blank" rel="noopener noreferrer">打开原站</a></p></div>
+    </div>
+    <div class="preview-tools" role="group" aria-label="预览范围">
+      <button type="button" class="mode" data-view="catalog" aria-pressed="false">章节目录</button>
+    </div>
+    <div id="reading-window" class="reading-window" aria-label="正文与章节目录">
+      <ol id="chapters" hidden></ol>
+      <p id="chapter-title"></p><pre id="preview" aria-label="章节正文预览"><span id="preview-text"></span></pre>
+    </div>
+    <div class="preview-tools" id="chapter-actions"><button type="button" class="mode" data-view="full" aria-pressed="false">展开全章</button></div>
+    <form id="range-form">
+      <label for="range">章节范围</label>
+      <select id="range">
+        <option value="all">全部章节</option>
+        <option value="first">前 3 章</option>
+        <option value="custom">自选范围</option>
+      </select>
+      <span id="custom-range" hidden>
+        <input id="start" type="number" min="1" step="1" aria-label="起始章节" disabled required>
+        <span>至</span>
+        <input id="end" type="number" min="1" step="1" aria-label="结束章节" disabled required>
+      </span>
+      <button id="download">下载 TXT</button>
+      <button id="partial-download" class="mode" type="button" hidden>下载已有章节</button>
+    </form>
+    <div id="download-progress" hidden>
+      <progress id="progress-bar" aria-label="章节下载进度"></progress>
+      <small id="progress-label" role="status"></small>
+    </div>
+    </div>
+  </section>
+  </div>
+</main>
+<script src="/assets/app.js"></script>
+</html>
